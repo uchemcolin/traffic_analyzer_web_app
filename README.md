@@ -8,7 +8,7 @@ This tool offers smart alerts and historical trend predictions to help you navig
 
 * **Frontend:**
     * HTML5
-    * CSS3 (with custom "Liquid Glass" styling)
+    * CSS3
     * JavaScript
     * **Bootstrap 5:** For responsive layout and UI components.
     * **jQuery & jQuery UI:** For interactive elements and address autocomplete.
