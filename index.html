@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Optimizer: Liquid Glass Commute</title>
+    <!-- Bootstrap CSS for responsive layout -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+    <!-- Leaflet.js for OSM map display -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- jQuery UI for autocomplete -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css" />
+    <!-- Custom CSS for iOS 26-inspired Liquid Glass design -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(180deg, #111827, #1f2937);
+            color: #e5e7eb;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+        .navbar {
+            background: rgba(31, 41, 55, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(45, 212, 191, 0.3);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: height 0.3s ease;
+        }
+        .navbar.shrunk {
+            height: 50px;
+        }
+        .navbar-brand, .nav-link {
+            color: #2dd4bf !important;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 400;
+            transition: opacity 0.3s;
+        }
+        .nav-link:hover {
+            opacity: 0.8;
+        }
+        .navbar-toggler {
+            border: 1px solid #e5e7eb !important; /* White border */
+            background-color: transparent !important; /* Keep background transparent */
+            padding: 6px 10px; /* Maintain padding for size */
+            transition: border-color 0.3s ease;
+        }
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e5e7eb' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important; /* White hamburger icon */
+            width: 1.5em;
+            height: 1.5em;
+        }
+        .navbar-toggler:focus {
+            box-shadow: 0 0 5px rgba(45, 212, 191, 0.4) !important; /* Match form-control focus effect */
+            border-color: #2dd4bf !important; /* Teal focus border */
+        }
+        .navbar-toggler.collapsed .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e5e7eb' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important; /* White hamburger icon when collapsed */
+        }
+        .navbar-toggler[aria-expanded="true"] .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%23e5e7eb' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M6 6L24 24M6 24L24 6'/%3e%3c/svg%3e") !important; /* White close (X) icon when expanded */
+        }
+        .container-main {
+            flex: 1;
+            padding: 20px;
+        }
+        .card {
+            background: rgba(31, 41, 55, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(45, 212, 191, 0.1);
+            transition: box-shadow 0.3s, transform 0.3s;
+        }
+        .card:hover {
+            box-shadow: 0 6px 20px rgba(45, 212, 191, 0.15);
+            transform: translateY(-2px);
+        }
+        .card-header {
+            background: rgba(30, 58, 138, 0.9);
+            backdrop-filter: blur(5px);
+            color: #e5e7eb;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.4rem;
+            border-radius: 16px 16px 0 0;
+            text-align: center;
+            padding: 12px;
+        }
+        .form-label {
+            color: #e5e7eb !important; /* White for Starting Point and Destination */
+        }
+        .form-control {
+            background: rgba(55, 65, 81, 0.6);
+            border: 1px solid rgba(45, 212, 191, 0.3);
+            color: #e5e7eb !important; /* White input text */
+            border-radius: 12px;
+            transition: border-color 0.3s, background 0.3s;
+        }
+        .form-control:focus {
+            background: rgba(55, 65, 81, 0.8);
+            border-color: #2dd4bf;
+            box-shadow: 0 0 5px rgba(45, 212, 191, 0.4);
+        }
+        .form-control::placeholder {
+            color: rgba(229, 231, 235, 0.7) !important; /* Lighter placeholder, not fully white */
+            opacity: 1;
+        }
+        .btn-primary {
+            background: #2dd4bf;
+            border: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 400;
+            padding: 10px 20px;
+            border-radius: 12px;
+            transition: background 0.3s, box-shadow 0.3s, opacity 0.3s;
+        }
+        .btn-primary:hover {
+            background: #26a69a;
+            box-shadow: 0 0 10px rgba(45, 212, 191, 0.3);
+            opacity: 0.9;
+        }
+        .btn-outline-primary {
+            color: #e5e7eb !important; /* White text for Select Route */
+            border-color: #2dd4bf;
+        }
+        .btn-outline-primary:hover {
+            background: #2dd4bf;
+            color: #1f2937 !important;
+        }
+        #map {
+            height: 400px;
+            border-radius: 12px;
+            border: 1px solid rgba(45, 212, 191, 0.3);
+            margin-top: 20px;
+            background: rgba(31, 41, 55, 0.2);
+        }
+        .route-option {
+            background: rgba(55, 65, 81, 0.7);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(45, 212, 191, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            transition: background 0.3s, transform 0.3s;
+            color: #e5e7eb !important;
+        }
+        .route-option h5, .route-option p {
+            color: #e5e7eb !important;
+        }
+        .route-option:hover {
+            background: rgba(75, 85, 99, 0.8);
+            transform: translateY(-2px);
+        }
+        .route-option.selected {
+            background: rgba(45, 212, 191, 0.15);
+            border-color: #2dd4bf;
+        }
+        #results h4 {
+            color: #e5e7eb !important; /* White for Route Options heading */
+        }
+        .alert {
+            background: rgba(229, 231, 235, 0.1);
+            backdrop-filter: blur(8px);
+            border: 1px solid #2dd4bf;
+            border-radius: 12px;
+            color: #e5e7eb;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: slideIn 0.3s ease forwards;
+        }
+        @keyframes slideIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .loading-spinner {
+            display: none;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #2dd4bf;
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            animation: fluidSpin 1.5s ease-in-out infinite;
+            margin: 20px auto;
+        }
+        @keyframes fluidSpin {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        footer {
+            background: rgba(31, 41, 55, 0.8);
+            backdrop-filter: blur(10px);
+            color: #2dd4bf;
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid rgba(45, 212, 191, 0.3);
+        }
+        .modal-content {
+            background: rgba(31, 41, 55, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            border-radius: 16px;
+            color: #e5e7eb;
+        }
+        .modal-header {
+            border-bottom: 1px solid rgba(45, 212, 191, 0.3);
+        }
+        .modal-title {
+            font-family: 'Orbitron', sans-serif;
+            color: #2dd4bf;
+        }
+        @media (max-width: 768px) {
+            #map {
+                height: 300px;
+            }
+            .card-header {
+                font-size: 1.2rem;
+            }
+            .btn-primary {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Traffic Optimizer</a>
+            <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav-collapse" aria-controls="navbarNav-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav-collapse">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">About</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-main">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-md-10">
+                <div class="card mt-4">
+                    <div class="card-header">
+                        Plan Your Smart Commute
+                    </div>
+                    <div class="card-body">
+                        <!-- Input Form -->
+                        <form id="routeForm">
+                            <div class="mb-3">
+                                <label for="start" class="form-label">Starting Point</label>
+                                <input type="text" class="form-control" id="start" placeholder="e.g., Oshodi, Lagos" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="destination" class="form-label">Destination</label>
+                                <input type="text" class="form-control" id="destination" placeholder="e.g., Victoria Island, Lagos" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Find Optimal Route</button>
+                        </form>
+                        <!-- Loading Spinner -->
+                        <div class="loading-spinner" id="loadingSpinner"></div>
+                        <!-- Map Display -->
+                        <div id="map"></div>
+                        <!-- Results Section -->
+                        <div id="results" class="mt-3"></div>
+                        <!-- Alerts Section -->
+                        <div id="alerts" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="aboutModalLabel">About Traffic Optimizer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Welcome to <strong>Traffic Optimizer</strong>, a cutting-edge web application designed to revolutionize urban commuting in Nigeria. Built with advanced route optimization, our system leverages OpenStreetMap (OSM) with Leaflet.js, OSRM, and Nominatim to provide seamless navigation for early morning commuters facing the challenges of urban congestion.</p>
+                    <h6>Our Mission</h6>
+                    <p>We aim to enhance travel efficiency by delivering precise route suggestions and address search capabilities. Whether you're a student, business professional, or daily commuter, Traffic Optimizer ensures you reach your destination efficiently.</p>
+                    <h6>Key Features</h6>
+                    <ul>
+                        <li><strong>Interactive Maps:</strong> Visualize routes using OpenStreetMap and Leaflet.js.</li>
+                        <li><strong>Route Optimization:</strong> Find the fastest routes with OSRM, optimized for distance and estimated travel time.</li>
+                        <li><strong>Address Search:</strong> Autocomplete addresses with Nominatim for easy input.</li>
+                        <li><strong>Smart Alerts:</strong> Notifications for route selection and errors.</li>
+                    </ul>
+                    <p>Developed with a futuristic interface and accessible via any modern browser, Traffic Optimizer is tailored to Nigeria’s unique traffic challenges, ensuring a sleek and intuitive user experience. Join us in transforming urban mobility!</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>© 2025 Traffic Optimizer. Powered by Innovation.</p>
+    </footer>
+
+    <!-- jQuery for interactivity -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap JS for responsive components -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet.js for OSM map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- jQuery UI for autocomplete -->
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <!-- Custom JavaScript -->
+    <script>
+        // Global variables
+        let map, currentRouteLayer;
+        const historicalCache = localStorage.getItem('trafficCache') ? JSON.parse(localStorage.getItem('trafficCache')) : {};
+
+        // Initialize OSM Map with Leaflet.js
+        function initMap() {
+            map = L.map('map').setView([6.5244, 3.3792], 12); // Lagos
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                tileSize: 256,
+                maxZoom: 19,
+            }).addTo(map);
+        }
+
+        // Add autocomplete to start and destination inputs
+        /*function setupAutocomplete() {
+            ['start', 'destination'].forEach(function(id) {
+                $(`#${id}`).autocomplete({
+                    source: function(request, response) {
+                        $.getJSON(
+                            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+                                request.term + ', Nigeria'
+                            )}&format=json&limit=5`,
+                            function(data) {
+                                response(
+                                    $.map(data, function(item) {
+                                        return {
+                                            label: item.display_name,
+                                            value: item.display_name,
+                                            lat: parseFloat(item.lat),
+                                            lng: parseFloat(item.lon)
+                                        };
+                                    })
+                                );
+                            }
+                        );
+                    },
+                    minLength: 2,
+                    select: function(event, ui) {
+                        $(`#${id}`).data('coords', { lat: ui.item.lat, lng: ui.item.lng });
+                    }
+                });
+            });
+        }*/analyzeRoutes// Previous JavaScript code unchanged until setupAutocomplete
+    function setupAutocomplete() {
+        ['start', 'destination'].forEach(function(id) {
+            $(`#${id}`).autocomplete({
+                source: function(request, response) {
+                    // Primary query with countrycodes=ng
+                    $.getJSON(
+                        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+                            request.term
+                        )}&format=json&limit=5&countrycodes=ng&accept-language=en`,
+                        function(data) {
+                            if (data.length === 0) {
+                                // Fallback query without country restriction
+                                $.getJSON(
+                                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+                                        request.term
+                                    )}&format=json&limit=5`,
+                                    function(fallbackData) {
+                                        if (fallbackData.length === 0) {
+                                            showAlert('No results found. Try a different address or check spelling.', 'warning');
+                                        }
+                                        response(
+                                            $.map(fallbackData, function(item) {
+                                                return {
+                                                    label: item.display_name,
+                                                    value: item.display_name,
+                                                    lat: parseFloat(item.lat),
+                                                    lng: parseFloat(item.lon)
+                                                };
+                                            })
+                                        );
+                                    }
+                                );
+                            } else {
+                                response(
+                                    $.map(data, function(item) {
+                                        return {
+                                            label: item.display_name,
+                                            value: item.display_name,
+                                            lat: parseFloat(item.lat),
+                                            lng: parseFloat(item.lon)
+                                        };
+                                    })
+                                );
+                            }
+                        }
+                    ).fail(function() {
+                        showAlert('Failed to fetch address suggestions. Check internet connection.', 'danger');
+                    });
+                },
+                minLength: 2,
+                select: function(event, ui) {
+                    $(`#${id}`).data('coords', { lat: ui.item.lat, lng: ui.item.lng });
+                }
+            });
+        });
+    }
+
+        // Handle form submission
+        $('#routeForm').submit(function(e) {
+            e.preventDefault();
+            const start = $('#start').val().trim();
+            const destination = $('#destination').val().trim();
+            const startCoords = $('#start').data('coords');
+            const destCoords = $('#destination').data('coords');
+
+            // Validate inputs
+            if (!start || !destination || !startCoords || !destCoords) {
+                showAlert('Please select valid starting point and destination from the suggestions.', 'danger');
+                return;
+            }
+
+            // Show loading spinner
+            $('#loadingSpinner').css('display', 'block');
+            $('#results').empty();
+            $('#alerts').empty();
+            if (currentRouteLayer) {
+                map.removeLayer(currentRouteLayer);
+            }
+
+            // Fetch and analyze routes
+            fetchRoutes(start, destination, startCoords, destCoords);
+        });
+
+        // Fetch routes using OSRM
+        function fetchRoutes(start, destination, startCoords, destCoords) {
+            //const url = `http://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${destCoords.lng},${destCoords.lat}?overview=full&geometries=geojson&alternatives=true`;
+            const url = `https://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${destCoords.lng},${destCoords.lat}?overview=full&geometries=geojson&alternatives=true`;
+            $.getJSON(url, function(data) {
+                $('#loadingSpinner').css('display', 'none');
+                if (data.code === 'Ok') {
+                    analyzeRoutes(data, start, destination);
+                    cacheTrafficData(start, destination, data);
+                } else {
+                    showAlert('Error fetching routes: ' + data.code, 'danger');
+                }
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                $('#loadingSpinner').css('display', 'none');
+                showAlert('Failed to connect to routing service: ' + textStatus, 'danger');
+                console.error('OSRM fetch error:', textStatus, errorThrown);
+            });
+        }
+
+        // Analyze routes for congestion and optimization
+        function analyzeRoutes(result, start, destination) {
+            const routes = result.routes;
+            console.log('Analyzing routes:', routes.length, 'routes found'); // Debug log
+            let optimalRoute = null;
+            let minDuration = Infinity;
+            let routeDetails = '';
+
+            // Process each route
+            $.each(routes, function(index, route) {
+                const duration = route.duration; // OSRM duration in seconds
+                const distance = (route.distance / 1000).toFixed(1) + ' km'; // Convert meters to km
+                const summary = `Route ${index + 1} via ${route.legs[0].summary || 'main roads'}`;
+
+                // Simulated congestion (since OSRM lacks real-time traffic)
+                const baseDuration = route.duration; // No traffic data, use duration
+                const isCongested = duration > baseDuration * 1.2; // Heuristic for simulated congestion
+
+                // Predict trends using historical cache
+                const trend = predictTrend(start, destination, duration);
+
+                // Build route details
+                routeDetails += `
+                    <div class="route-option mb-3 ${index === 0 ? 'selected' : ''}" data-route-index="${index}">
+                        <h5>${summary}</h5>
+                        <p><strong>Distance:</strong> ${distance}</p>
+                        <p><strong>Estimated Time:</strong> ${Math.round(duration / 60)} minutes</p>
+                        <p><strong>Status:</strong> ${isCongested ? 'Possible Congestion' : 'Clear'}</p>
+                        <p><strong>Trend:</strong> ${trend}</p>
+                        <button class="btn btn-sm btn-outline-primary select-route" data-index="${index}">Select Route</button>
+                    </div>
+                `;
+
+                // Update optimal route
+                if (duration < minDuration) {
+                    minDuration = duration;
+                    optimalRoute = { route, index };
+                }
+            });
+
+            // Display results
+            $('#results').html(`
+                <h4>Route Options</h4>
+                ${routeDetails}
+            `);
+
+            // Show alert for congestion
+            if (optimalRoute.route.duration > optimalRoute.route.duration * 1.2) {
+                showAlert(`Possible congestion detected on Route ${optimalRoute.index + 1}. Consider alternative routes.`, 'warning');
+            }
+
+            // Auto-select optimal route
+            selectRoute(optimalRoute.index, routes);
+
+            // Bind select route buttons
+            $('.select-route').off('click').on('click', function() {
+                const index = parseInt($(this).data('index')); // Ensure index is integer
+                console.log('Select Route clicked, index:', index); // Debug log
+                selectRoute(index, routes);
+            });
+        }
+
+        // Predict traffic trend using historical cache
+        function predictTrend(start, destination, currentDuration) {
+            const key = start + '|' + destination;
+            if (historicalCache[key]) {
+                const pastDurations = historicalCache[key].durations;
+                const avgDuration = pastDurations.reduce((a, b) => a + b, 0) / pastDurations.length;
+                if (currentDuration > avgDuration * 1.2) {
+                    return 'Worsening congestion expected';
+                } else if (currentDuration < avgDuration * 0.8) {
+                    return 'Improving traffic conditions';
+                }
+            }
+            return 'Stable traffic conditions';
+        }
+
+        // Cache traffic data in localStorage
+        function cacheTrafficData(start, destination, result) {
+            const key = start + '|' + destination;
+            if (!historicalCache[key]) {
+                historicalCache[key] = { durations: [], timestamp: Date.now() };
+            }
+            const duration = result.routes[0].duration;
+            historicalCache[key].durations.push(duration);
+            if (historicalCache[key].durations.length > 10) {
+                historicalCache[key].durations.shift();
+            }
+            localStorage.setItem('trafficCache', JSON.stringify(historicalCache));
+        }
+
+        // Select and display a route
+        function selectRoute(index, routes) {
+            console.log('Rendering route, index:', index, 'route data:', routes[index]); // Debug log
+            if (!routes[index] || !routes[index].geometry) {
+                console.error('Invalid route or geometry at index:', index);
+                showAlert('Failed to display route. Please try another route.', 'danger');
+                return;
+            }
+
+            // Clear previous route layer
+            if (currentRouteLayer) {
+                map.removeLayer(currentRouteLayer);
+                currentRouteLayer = null;
+            }
+
+            try {
+                // Render new route
+                currentRouteLayer = L.geoJSON(routes[index].geometry, {
+                    style: { color: '#2dd4bf', weight: 4, opacity: 0.8 }
+                }).addTo(map);
+                console.log('Route layer added, bounds:', currentRouteLayer.getBounds()); // Debug log
+
+                // Pan and zoom to route bounds
+                map.fitBounds(currentRouteLayer.getBounds());
+            } catch (error) {
+                console.error('Error rendering route:', error);
+                showAlert('Error displaying route. Please try again.', 'danger');
+                return;
+            }
+
+            // Update selected route styling
+            $('.route-option').removeClass('selected');
+            $(`.route-option[data-route-index="${index}"]`).addClass('selected');
+        }
+
+        // Show alert message
+        function showAlert(message, type) {
+            $('#alerts').append(`
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `);
+            setTimeout(() => {
+                $(`.alert.alert-${type}`).alert('close');
+            }, 5000);
+        }
+
+        // Dynamic navbar shrink on scroll
+        $(window).scroll(function() {
+            if ($(window).scrollTop() > 50) {
+                $('.navbar').addClass('shrunk');
+            } else {
+                $('.navbar').removeClass('shrunk');
+            }
+        });
+
+        // Initialize map and autocomplete
+        $(document).ready(function() {
+            initMap();
+            setupAutocomplete();
+        });
+    </script>
+</body>
+</html>
